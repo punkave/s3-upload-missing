@@ -1,6 +1,6 @@
 {
   "name": "s3-upload-missing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Upload contents of given folder to given s3 path, recursively. If a file already exists, do not upload it.",
   "main": "app.js",
   "scripts": {
@@ -27,5 +27,8 @@
     "boring": "^0.1.0",
     "glob": "^6.0.1",
     "lodash": "^3.10.1"
+  },
+  "bin": {
+    "s3-upload-missing": "./bin/s3-upload-missing"
   }
 }
