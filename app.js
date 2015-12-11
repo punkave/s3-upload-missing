@@ -92,9 +92,14 @@ function send() {
     key += item;
     var chmodded = false;
     if (chmodIfNeeded) {
+      var stats;
       try {
-        fs.accessSync(local, fs.R_OK);
+        stats = fs.statSync(local);
       } catch (e) {
+        // Probably doesn't belong to us, this is not a fatal error
+        vlog('cannot stat ' + local + ', probably not ours');
+      }
+      if (!(stats.mode & 0777)) {
         try {
           fs.chmodSync(local, 0700);
           chmodded = true;
