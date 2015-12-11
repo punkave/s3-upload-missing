@@ -117,7 +117,6 @@ function send() {
       // if we had to chmod it from 000 it should be private in s3 too,
       // per uploadfs semantics
       ACL: chmodded ? 'private' : (argv.acl || 'private'),
-      Body: fs.createReadStream(local),
       // CacheControl: 'STRING_VALUE',
       // ContentDisposition: 'STRING_VALUE',
       // ContentEncoding: 'STRING_VALUE',
@@ -126,16 +125,31 @@ function send() {
       ContentType: contentType
     };
     vlog('Uploading ' + item + ' (' + n + ' of ' + missing.length + ')');
-    return s3.putObject(params, function(err, data) {
-      if (chmodded) {
-        vlog('chmodded ' + local + ' back to 0000');
-        fs.chmodSync(local, 0000);
+    var attempts = 0;
+    function attempt() {
+      if (params.Body) {
+        // So we don't leak streams when retrying
+        params.Body.destroy();
       }
-      if (err) {
+      params.Body = fs.createReadStream(local);
+      return s3.putObject(params, function(err, data) {
+        if (Math.random() < 0.5) {
+          err = 'wacky';
+        }
+        if (err && (attempts < 10)) {
+          attempts++;
+          vlog('RETRYING: ' + attempts + ' of 10 (with exponential backoff)');
+          setTimeout(attempt, 1000 << attempts);
+          return;
+        }
+        if (chmodded) {
+          vlog('chmodded ' + local + ' back to 0000');
+          fs.chmodSync(local, 0000);
+        }
         return callback(err);
-      }
-      return callback(null);
-    });
+      });
+    }
+    return attempt();
   }, function(err) {
     if (err) {
       vlog(err);
