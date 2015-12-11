@@ -133,9 +133,6 @@ function send() {
       }
       params.Body = fs.createReadStream(local);
       return s3.putObject(params, function(err, data) {
-        if (Math.random() < 0.5) {
-          err = 'wacky';
-        }
         if (err && (attempts < 10)) {
           attempts++;
           vlog('RETRYING: ' + attempts + ' of 10 (with exponential backoff)');
