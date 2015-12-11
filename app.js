@@ -9,7 +9,7 @@ var contentTypes = require('./lib/contentTypes');
 var s3 = new AWS.S3();
 
 if (argv._.length !== 3) {
-  console.error('Usage: s3-upload-missing from-local-path remote-bucket-name remote-path');
+  console.error('Usage: s3-upload-missing from-local-path remote-bucket-name remote-path [--acl=private, --acl=public-read, etc.]');
   process.exit(1);
 }
 
@@ -87,7 +87,7 @@ function send() {
     var params = {
       Bucket: bucket, /* required */
       Key:  key,
-      ACL: 'public-read',
+      ACL: argv.acl || 'private',
       Body: fs.createReadStream(localPath + item),
       // CacheControl: 'STRING_VALUE',
       // ContentDisposition: 'STRING_VALUE',
