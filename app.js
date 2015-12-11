@@ -16,6 +16,7 @@ if (argv._.length !== 3) {
 var from = argv._[0];
 var bucket = argv._[1];
 var to = argv._[2];
+var chmodIfNeeded = argv['chmod-if-needed'];
 
 vlog('Finding local files...');
 var local = _.map(glob.sync(from + '/**', { nodir: true }), function(name) {
@@ -84,13 +85,32 @@ function send() {
     if (localPath.length && (!localPath.match(/\/$/))) {
       localPath += '/';
     }
+    var local = localPath + item;
     var key = prefix;
     key += item;
+    var chmodded = false;
+    if (chmodIfNeeded) {
+      try {
+        fs.accessSync(local, fs.R_OK);
+      } catch (e) {
+        try {
+          fs.chmodSync(local, 0700);
+          chmodded = true;
+          vlog('chmodded ' + local + ' to 0700 to copy it');
+        } catch (e) {
+          // Probably doesn't belong to us, this is not a fatal error
+          vlog('cannot chmod ' + local + ', probably not ours to begin with');
+          return callback(null);
+        }
+      }
+    }
     var params = {
       Bucket: bucket, /* required */
       Key:  key,
-      ACL: argv.acl || 'private',
-      Body: fs.createReadStream(localPath + item),
+      // if we had to chmod it from 000 it should be private in s3 too,
+      // per uploadfs semantics
+      ACL: chmodded ? 'private' : (argv.acl || 'private'),
+      Body: fs.createReadStream(local),
       // CacheControl: 'STRING_VALUE',
       // ContentDisposition: 'STRING_VALUE',
       // ContentEncoding: 'STRING_VALUE',
@@ -100,6 +120,10 @@ function send() {
     };
     vlog('Uploading ' + item);
     return s3.putObject(params, function(err, data) {
+      if (chmodded) {
+        vlog('chmodded ' + local + ' back to 0000');
+        fs.chmodSync(local, 0000);
+      }
       if (err) {
         return callback(err);
       }
