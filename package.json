@@ -1,0 +1,31 @@
+{
+  "name": "s3-upload-missing",
+  "version": "0.1.0",
+  "description": "Upload contents of given folder to given s3 path, recursively. If a file already exists, do not upload it.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/punkave/s3-upload-missing.git"
+  },
+  "keywords": [
+    "Amazon",
+    "AWS",
+    "S3"
+  ],
+  "author": "P'unk Avenue LLC",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/punkave/s3-upload-missing/issues"
+  },
+  "homepage": "https://github.com/punkave/s3-upload-missing#readme",
+  "dependencies": {
+    "async": "^1.5.0",
+    "aws-sdk": "^2.2.22",
+    "boring": "^0.1.0",
+    "glob": "^6.0.1",
+    "lodash": "^3.10.1"
+  }
+}
