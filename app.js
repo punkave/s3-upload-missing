@@ -17,6 +17,7 @@ var from = argv._[0];
 var bucket = argv._[1];
 var to = argv._[2];
 
+vlog('Finding local files...');
 var local = _.map(glob.sync(from + '/**', { nodir: true }), function(name) {
   if (name.substr(0, from.length) === from) {
     name = name.substr(from.length);
@@ -27,16 +28,17 @@ var local = _.map(glob.sync(from + '/**', { nodir: true }), function(name) {
   return name;
 });
 
-vlog(local);
 var remote = [];
 
 var prefix = prefixFromTo(to);
 
+vlog('Finding remote files...');
 s3.listObjects({ Bucket: bucket, Prefix: prefix }).on('success', function handlePage(response) {
   remote = remote.concat(_.map(response.data.Contents, function(item) {
     var key = item.Key;
     return key.substr(prefix.length);
   }));
+  vlog(remote.length);
   // do something with response.data
   if (response.hasNextPage()) {
     return response.nextPage().on('success', handlePage).send();
