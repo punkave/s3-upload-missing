@@ -70,10 +70,12 @@ function compare() {
 }
 
 function send() {
+  var n = 0;
   // Send up to 2 files simultaneously, more than that probably isn't an efficiency gain because
   // it's mostly network time, but with two we mitigate the time wasted creating new HTTP connections a bit
   // and use the pipe a little more efficiently. I think.
   return async.eachLimit(missing, 2, function(item, callback) {
+    n++;
     var ext = path.extname(item);
     if (ext.substr(0, 1) === '.') {
       ext = ext.substr(1);
@@ -118,7 +120,7 @@ function send() {
       // ContentLength: 0,
       ContentType: contentType
     };
-    vlog('Uploading ' + item);
+    vlog('Uploading ' + item + ' (' + n + ' of ' + missing.length + ')');
     return s3.putObject(params, function(err, data) {
       if (chmodded) {
         vlog('chmodded ' + local + ' back to 0000');
