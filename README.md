@@ -17,9 +17,11 @@ s3-upload-missing --verbose . mybucketname uploads --acl=public-read
 # can read it, then send it to S3 with "private" permissions.
 # Then chmod it back to 000
 s3-upload-missing --verbose . mybucketname uploads --acl=public-read --chmod-if-needed
+
+# Also remove any remote files that do not exist locally.
+# Use with care
+s3-upload-missing . mybucketname . --delete
 ```
 
-This tool was written due to persistent problems with `s3cmd` attempting to resend the same files and not making further progress. It was also a good opportunity to test out the official AWS SDK instead of using knox.
-
-(Verdict: good stuff.)
+"Why not use s3cmd?" `s3cmd` works fine, but we have a peculiar need to successfully upload files with permissions `000` and give them the `private` acl on s3 (the `--chmod-if-needed` option). This is very useful when transitioning from local files to s3 with [uploadfs](https://www.npmjs.com/package/uploadfs).
 

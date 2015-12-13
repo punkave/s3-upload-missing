@@ -9,7 +9,12 @@ var contentTypes = require('./lib/contentTypes');
 var s3 = new AWS.S3();
 
 if (argv._.length !== 3) {
-  console.error('Usage: s3-upload-missing from-local-path remote-bucket-name remote-path [--acl=private, --acl=public-read, etc.]');
+  console.error('Usage: s3-upload-missing from-local-path remote-bucket-name remote-path [--acl=private, --acl=public-read, etc.] [--delete]');
+  console.error('');
+  console.error('The --delete option removes a file from S3 if it does not also exist at the local path.');
+  console.error('This should be used carefully.');
+  console.error('');
+  console.error('If --acl is not specified files are marked "private" (not web-accessible by the public).');
   process.exit(1);
 }
 
@@ -33,32 +38,53 @@ var remote = [];
 
 var prefix = prefixFromTo(to);
 
-vlog('Finding remote files...');
-s3.listObjects({ Bucket: bucket, Prefix: prefix }).on('success', function handlePage(response) {
-  remote = remote.concat(_.map(response.data.Contents, function(item) {
-    var key = item.Key;
-    return key.substr(prefix.length);
-  }));
-  vlog(remote.length);
-  // do something with response.data
-  if (response.hasNextPage()) {
-    return response.nextPage().on('success', handlePage).send();
+async.series([
+  list,
+  compare,
+  send,
+  remove
+], function(err) {
+  if (err) {
+    console.error(err);
+    process.exit(1);
   }
-  return compare();
-}).on('error', fail).send();
+  vlog('DONE.');
+  process.exit(0);
+});
 
-function fail(error) {
-  console.error(error);
-  process.exit(1);
+function list(callback) {
+  vlog('Finding remote files...');
+  return s3.listObjects({ Bucket: bucket, Prefix: prefix }).on('success', function handlePage(response) {
+    remote = remote.concat(_.map(response.data.Contents, function(item) {
+      var key = item.Key;
+      return key.substr(prefix.length);
+    }));
+    vlog(remote.length);
+    // do something with response.data
+    if (response.hasNextPage()) {
+      return response.nextPage().on('success', handlePage).send();
+    }
+    // Finished
+    return callback(null);
+  }).on('error', fail).send();
+
+  function fail(err) {
+    return callback(err);
+  }
 }
 
 var missing;
+var deleted;
 
-function compare() {
+function compare(callback) {
   var remoteMap = _.indexBy(remote, function(name) { return name; });
+  var localMap = _.indexBy(local, function(name) { return name; });
   missing = _.filter(local, function(name) {
     return (!_.has(remoteMap, name));
   });
+  deleted = _.filter(remote, function(name) {
+    return (!_.has(localMap, name));
+  })
   var found = _.filter(local, function(name) {
     return _.has(remoteMap, name);
   });
@@ -66,10 +92,14 @@ function compare() {
   vlog(missing.length);
   vlog('Found files:');
   vlog(found.length);
-  return send();
+  if (argv['delete']) {
+    vlog('Remote files that do not exist locally:');
+    vlog(deleted.length);
+  }
+  return setImmediate(callback);
 }
 
-function send() {
+function send(callback) {
   var n = 0;
   // Send up to 2 files simultaneously, more than that probably isn't an efficiency gain because
   // it's mostly network time, but with two we mitigate the time wasted creating new HTTP connections a bit
@@ -136,7 +166,7 @@ function send() {
         if (err && (attempts < 10)) {
           attempts++;
           vlog('RETRYING: ' + attempts + ' of 10 (with exponential backoff)');
-          setTimeout(attempt, 1000 << attempts);
+          setTimeout(attempt, deleteBatchSize << attempts);
           return;
         }
         if (chmodded) {
@@ -147,14 +177,59 @@ function send() {
       });
     }
     return attempt();
-  }, function(err) {
-    if (err) {
-      vlog(err);
-      process.exit(1);
+  }, callback);
+}
+
+// max supported by s3
+var deleteBatchSize = 1000;
+
+function remove(callback) {
+  if (!argv['delete']) {
+    return setImmediate(callback);
+  }
+  if (!deleted.length) {
+    return setImmediate(callback);
+  }
+  // Delete files using the batch API for performance
+  var n = 0;
+  var i = 0;
+  return pass();
+
+  function pass() {
+    var params = {
+      Bucket: bucket, /* required */
+      Delete: {
+        Objects: _.map(deleted.slice(i, i + deleteBatchSize), function(item) {
+          return {
+            Key: prefix + item
+          };
+        })
+      }
+    };
+    i += deleteBatchSize;
+    var count = params.Delete.Objects.length;
+    n += count;
+    vlog('Deleting ' + count + ' objects (' + n + ' of ' + deleted.length + ')');
+    var attempts = 0;
+    function attempt() {
+      return s3.deleteObjects(params, function(err, data) {
+        if (err && (attempts < 10)) {
+          attempts++;
+          vlog('RETRYING: ' + attempts + ' of 10 (with exponential backoff)');
+          setTimeout(attempt, deleteBatchSize << attempts);
+          return;
+        }
+        if (err) {
+          return callback(err);
+        }
+        if (i < deleted.length) {
+          return pass();
+        }
+        return callback(null);
+      });
     }
-    vlog('DONE.');
-    process.exit(0);
-  });
+    return attempt();
+  }
 }
 
 function vlog(s) {
