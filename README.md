@@ -23,5 +23,16 @@ s3-upload-missing --verbose . mybucketname uploads --acl=public-read --chmod-if-
 s3-upload-missing . mybucketname . --delete
 ```
 
-"Why not use s3cmd?" `s3cmd` works fine, but we have a peculiar need to successfully upload files with permissions `000` and give them the `private` acl on s3 (the `--chmod-if-needed` option). This is very useful when transitioning from local files to s3 with [uploadfs](https://www.npmjs.com/package/uploadfs).
+You must populate `~/.aws/credentials` with your key and secret, like this:
 
+```
+[default]
+
+aws_access_key_id = xxx
+
+aws_secret_access_key = yyyyyy
+```
+
+TODO: support command line arguments for these as well.
+
+"Why not use s3cmd?" `s3cmd` works fine, but we have a peculiar need to successfully upload files with permissions `000` and give them the `private` acl on s3 (the `--chmod-if-needed` option). This is very useful when transitioning from local files to s3 with [uploadfs](https://www.npmjs.com/package/uploadfs). Also, `s3-upload-missing` may be faster.

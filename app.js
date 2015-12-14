@@ -166,7 +166,7 @@ function send(callback) {
         if (err && (attempts < 10)) {
           attempts++;
           vlog('RETRYING: ' + attempts + ' of 10 (with exponential backoff)');
-          setTimeout(attempt, deleteBatchSize << attempts);
+          setTimeout(attempt, 100 << attempts);
           return;
         }
         if (chmodded) {
@@ -216,7 +216,7 @@ function remove(callback) {
         if (err && (attempts < 10)) {
           attempts++;
           vlog('RETRYING: ' + attempts + ' of 10 (with exponential backoff)');
-          setTimeout(attempt, deleteBatchSize << attempts);
+          setTimeout(attempt, 100 << attempts);
           return;
         }
         if (err) {
